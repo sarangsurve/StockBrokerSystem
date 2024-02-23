@@ -1,5 +1,15 @@
 use std::net::UdpSocket;
 use serde_json::json;
+use redis::Commands;
+
+fn publish_to_redis(commodity_name: &str, json_data: serde_json::Value) {
+    let client = redis::Client::open("redis://127.0.0.1/").expect("Failed to connect to Redis");
+    let mut con = client.get_connection().expect("Failed to get Redis connection");
+
+    // Publish JSON data to a Redis channel based on CommodityName
+    let _: () = con.publish(commodity_name, json_data.to_string())
+        .expect("Failed to publish to Redis");
+}
 
 fn main() {
     let bind_address = "127.0.0.1:10023";
@@ -15,7 +25,7 @@ fn main() {
 
         let received_data = String::from_utf8_lossy(&buffer[0..amt]); // Convert the received bytes to a string
 
-		// Parse the input string and extract values
+        // Parse the input string and extract values
         let parts: Vec<&str> = received_data.trim().split('^').collect();
         if parts.len() == 5 {
             let commodity_name = parts[0];
@@ -33,7 +43,7 @@ fn main() {
                 "Close": close,
             });
 
-            println!("{}", json_data); // Print the received JSON object
+            publish_to_redis(commodity_name, json_data); // Publish JSON data to Redis
 
         } else {
             println!("Invalid UDP packet format");
